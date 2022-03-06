@@ -1,0 +1,19 @@
+{
+  "name": "vue-source",
+  "version": "1.0.0",
+  "description": "",
+  "main": "rollup.config.js",
+  "dependencies": {
+    "@babel/core": "^7.17.5",
+    "@babel/preset-env": "^7.16.11",
+    "rollup": "^2.69.1",
+    "rollup-plugin-babel": "^4.4.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "dev": "rollup -cw"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
