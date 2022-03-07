@@ -1,5 +1,5 @@
 import observe from './observe/index'
-export default function initState(vm) {
+export  function initState(vm) {
   const opts = vm.$options
   if (opts.data) {
     initData(vm)

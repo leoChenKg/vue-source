@@ -45,34 +45,7 @@
 
   var methods = ['push', 'pop', 'shift', 'unshift', 'splice', 'reverse', 'sort'];
   methods.forEach(function (m) {
-    //   // 函数劫持 切片编程
-    //   if (m === 'push' || m === 'unshift') {
-    //     newArrayProto[m] = function (...args) {
-    //       console.log('数组增加值，更新视图')
-    //       this.__ob__.observeArray(arg)
-    //       return oldArrayProto[m].apply(this, args)
-    //     }
-    //   } else if (m === 'splice') {
-    //     newArrayProto[m] = function (...args) {
-    //       if (args.length > 2) {
-    //         // 有增加的值
-    //         let addValues = args.slice(1)
-    //         // 递归劫持新增的数据
-    //         this.__ob__.observeArray(addValues)
-    //       } else {
-    //         // 删除值
-    //       }
-    //       if (args[1] && args[1] > 0) {
-    //         console.log('更新数组数据，更新视图')
-    //       }
-    //       return oldArrayProto[m].apply(this, args)
-    //     }
-    //   } else {
-    //     newArrayProto[m] = function (...args) {
-    //       console.log('数组更新，更新视图')
-    //       return oldArrayProto[m].apply(this, args)
-    //     }
-    //   }
+    // 函数劫持 切片编程
     newArrayProto[m] = function () {
       for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
         args[_key] = arguments[_key];
@@ -211,6 +184,11 @@
     });
   }
 
+  function compileToFucntion(template) {
+    console.log(template); // 1. 将 template 转换成 ast 语法树
+    // 2. 生成 render 方法 （render 方法的执行结果就是 虚拟 DOM）
+  }
+
   function initMixin(Vue) {
     // 用于初始化操作
     Vue.prototype._init = function (options) {
@@ -220,7 +198,37 @@
 
       this.$options = options; // 初始化状态
 
-      initState(vm);
+      initState(vm); // 模板解析
+
+      if (options.el) {
+        vm.$mount(options.el);
+      }
+    };
+
+    Vue.prototype.$mount = function (el) {
+      var vm = this;
+      el = document.querySelector(el);
+      var opts = vm.$options; // 如果没有 render 函数
+
+      if (!opts.render) {
+        var template;
+
+        if (!opts.template && el) {
+          // 如果没有 template 属性 但是有 el 属性，就应该用 el 的区域作为模板
+          template = el.outerHTML;
+        } else {
+          if (el) {
+            template = opts.template;
+          }
+        } // 写了 template 就用写了 tempalte
+
+
+        if (template) {
+          // 对模板进行编译
+          var render = compileToFucntion(template);
+          opts.render = render;
+        }
+      }
     };
   }
 
