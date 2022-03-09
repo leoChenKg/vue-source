@@ -26,16 +26,16 @@ function codegen(ast) {
   if (ast.type === 3) {
     // 文本情况  把 {{age}} ==> _s(age)     把 {{name}} hello ==> _v(_s(name)+ " hello")
     // 把 xxx ==> _v("xxx")
-    ast.text = ast.text.replaceAll(/\{\{((?:.|\r?\n)+?)\}\}/g, (...args) => `" + _s(${args[1]}) + "`)
-    if (ast.text.startsWith('" +')) {
+    ast.text = ast.text.replaceAll(/\{\{((?:.|\r?\n)+?)\}\}/g, (...args) => "` + _s("+ args[1] + ") + `")
+    if (ast.text.startsWith('` +')) {
       ast.text = ast.text.slice(3)
     } else {
-      ast.text = '"' + ast.text
+      ast.text = '`' + ast.text
     }
-    if (ast.text.endsWith('+ "')) {
+    if (ast.text.endsWith('+ `')) {
       ast.text = ast.text.slice(0, -3)
     } else {
-      ast.text += '"'
+      ast.text += '`'
     }
     return `_v(${ast.text})`
   }
@@ -66,6 +66,5 @@ export function compileToFucntion(template) {
   let code = codegen(ast)
   // with(ctx) { ...code } ctx 作为以下代码的上下文执行环境 code 中取的变量都是从 ctx 中取
   code = `with(this){ return ${code}}`
-  let render = new Function(code)
-  return render
+  return new Function(code) // render 函数
 }

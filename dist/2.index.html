@@ -7,19 +7,15 @@
     <title>Document</title>
   </head>
   <body>
-    <div id="app" name="leo" disable style="color: whitesmoke; background: grey">
-      <div>我的姓名是：{{name}}</div>
-      <span>我的年龄是：{{age}}</span>
-      <span style="color: burlywood; background: skyblue">哈喽哈</span>
-    </div>
+    <div id="app" name="leo" disable style="color: whitesmoke; background: grey">{{name}} {{name}} {{age}}</div>
 
     <script src="./vue.js"></script>
     <script>
       const vm = new Vue({
         data: function () {
           return {
-            name: 'zf',
-            age: 24,
+            name: 'cyx',
+            age: 23,
             arr: [1, 2, 3],
             a: {
               b: 1
@@ -28,12 +24,10 @@
         },
         el: '#app'
       })
-
+      console.log(vm)
       setTimeout(() => {
-        vm.name = 'cyx'
-        vm.age = 23
-
-        vm._update(vm._render())
+        vm.name = 'cyx==cqy'
+        vm.age = 90
       }, 1000)
     </script>
   </body>

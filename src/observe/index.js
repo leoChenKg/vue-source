@@ -1,4 +1,5 @@
 import { newArrayProto } from './array'
+import Dep from './dep'
 class Observer {
   constructor(data) {
     // 给数据加了一个标识，表示被劫持过了，并搞成不可枚举的，防止 walk  执行时死循环
@@ -28,11 +29,15 @@ class Observer {
 // 数据劫持功能的函数
 export function defineReactive(target, key, value) {
   // 如果当前值是对象则 继续递归劫持其属性
+  let dep = new Dep() // 每一个属性都有一个 dep 实例
   observe(value)
   // 劫持数据
   Object.defineProperty(target, key, {
     get() {
       console.log('获取值')
+      if (Dep.target) {
+        dep.depend() // 让收集器记住当前的watcher
+      }
       return value
     },
     set(newVal) {
@@ -40,6 +45,7 @@ export function defineReactive(target, key, value) {
       console.log('数据改变了，去更新页面！')
       observe(newVal)
       value = newVal
+      dep.notify()
     }
   })
 }

@@ -1,3 +1,4 @@
+import Watcher from './observe/watcher'
 import { createTextVNode, createElementVnode } from './vdom'
 
 function createElm(vnode) {
@@ -92,8 +93,9 @@ export default function initLifecycle(Vue) {
 
 export function mountComponent(vm, el) {
   vm.$el = el
-  // 调用render方法产生虚拟节点 虚拟 DOM
-  vm._update(vm._render()) // vm._render ===> vm.$options.render
-  // 根据虚拟DOM 产生真实 DOM
-  // 插入到 el 中
+  const updateComponent = () => {
+    // 调用render方法产生虚拟节点 虚拟 DOM
+    vm._update(vm._render()) // vm._render ===> vm.$options.render
+  }
+  new Watcher(vm, updateComponent, true) // 用 true 标识是一个渲染过程
 }

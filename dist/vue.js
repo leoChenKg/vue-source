@@ -134,6 +134,42 @@
     };
   });
 
+  var id$1 = 0;
+
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.id = id$1++; // 属性的dep要收集 watcher
+
+      this.subs = []; // 存放当前属性对应得watcher
+    }
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        // 不希望重复收集 watcher
+        Dep.target.addDep(this); // 让 watcher 也记住 dep， 他们之间的关系就是多对多
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (watcher) {
+          return watcher.update();
+        });
+      }
+    }]);
+
+    return Dep;
+  }();
+
+  Dep.target = null;
+
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
       _classCallCheck(this, Observer);
@@ -179,11 +215,18 @@
 
   function defineReactive(target, key, value) {
     // 如果当前值是对象则 继续递归劫持其属性
+    var dep = new Dep(); // 每一个属性都有一个 dep 实例
+
     observe(value); // 劫持数据
 
     Object.defineProperty(target, key, {
       get: function get() {
         console.log('获取值');
+
+        if (Dep.target) {
+          dep.depend(); // 让收集器记住当前的watcher
+        }
+
         return value;
       },
       set: function set(newVal) {
@@ -191,6 +234,7 @@
         console.log('数据改变了，去更新页面！');
         observe(newVal);
         value = newVal;
+        dep.notify();
       }
     });
   }
@@ -422,19 +466,19 @@
       // 文本情况  把 {{age}} ==> _s(age)     把 {{name}} hello ==> _v(_s(name)+ " hello")
       // 把 xxx ==> _v("xxx")
       ast.text = ast.text.replaceAll(/\{\{((?:.|\r?\n)+?)\}\}/g, function () {
-        return "\" + _s(".concat(arguments.length <= 1 ? undefined : arguments[1], ") + \"");
+        return "` + _s(" + (arguments.length <= 1 ? undefined : arguments[1]) + ") + `";
       });
 
-      if (ast.text.startsWith('" +')) {
+      if (ast.text.startsWith('` +')) {
         ast.text = ast.text.slice(3);
       } else {
-        ast.text = '"' + ast.text;
+        ast.text = '`' + ast.text;
       }
 
-      if (ast.text.endsWith('+ "')) {
+      if (ast.text.endsWith('+ `')) {
         ast.text = ast.text.slice(0, -3);
       } else {
-        ast.text += '"';
+        ast.text += '`';
       }
 
       return "_v(".concat(ast.text, ")");
@@ -466,9 +510,87 @@
     var code = codegen(ast); // with(ctx) { ...code } ctx 作为以下代码的上下文执行环境 code 中取的变量都是从 ctx 中取
 
     code = "with(this){ return ".concat(code, "}");
-    var render = new Function(code);
-    return render;
+    return new Function(code); // render 函数
   }
+
+  var id = 0; // watcher 的 id
+  // 创建渲染 watcher 时，会把当前的渲染 watcher 放到 Dep.target 上，
+  // 接下来执行 _render 函数生成虚拟 dom 在解析成真实dom 的过程中，数据属性被获取将触发 getter 时，把此 watcher 放入 dep 的 watcher 对列中，
+  // 当该属性设置值的时候就 把 dep 中的watcher拿出来查重新执行渲染函数，让页面更新
+
+  var Watcher = /*#__PURE__*/function () {
+    function Watcher(vm, fn, options) {
+      _classCallCheck(this, Watcher);
+
+      // 传入 vm ，代表该 watcher 管理 此 vm
+      // fn 为渲染函数
+      this.id = id++;
+      this.renderWatcher = options; // 标识是不是一个 渲染 watcher
+
+      this.getter = fn; // getter 调用会发生取值操作 fn 是 ()=> {vm._update(vm._render)}
+
+      this.deps = []; // 记录 dep 的目的 比如说：组件卸载时，让 dep 不再收集 watcher，计算属性时可能需要
+
+      this.depsIds = new Set(); // set 去重
+
+      this.get();
+    }
+
+    _createClass(Watcher, [{
+      key: "addDep",
+      value: function addDep(dep) {
+        // 一个 watcher 对应多个属性，属性也不要重复
+        var id = dep.id;
+
+        if (!this.depsIds.has(id)) {
+          this.deps.push(dep);
+          this.depsIds.add(id);
+          dep.addSub(this);
+        }
+      }
+    }, {
+      key: "get",
+      value: function get() {
+        console.log('更新！！！！');
+        Dep.target = this; // 当前的渲染 watcher 放到全局 Dep 上
+
+        this.getter(); // 会执行 render 函数 去 vm 上取值。然后再更新界面
+
+        Dep.target = null; // 渲染完毕后清空
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        // this.get()
+        queueWather(this); // 把当前的 watcher 传入存起来，异步更新
+      }
+    }]);
+
+    return Watcher;
+  }(); // 异步更新 方案一
+
+
+  var queue = [];
+  var has = {};
+  var padding = false;
+
+  function queueWather(watcher) {
+    var id = watcher.id;
+
+    if (has[id] === undefined) {
+      queue.push(watcher);
+      has[id] = watcher.id;
+
+      if (!padding) {
+        padding = true;
+        Promise.resolve().then(function () {
+          return queue.forEach(function (watcher) {
+            return watcher.get();
+          });
+        });
+      }
+    }
+  } // 异步更新 方案二
 
   // _c()
   function createElementVnode(vm, tag, data) {
@@ -597,12 +719,15 @@
     };
   }
   function mountComponent(vm, el) {
-    vm.$el = el; // 调用render方法产生虚拟节点 虚拟 DOM
+    vm.$el = el;
 
-    vm._update(vm._render()); // vm._render ===> vm.$options.render
-    // 根据虚拟DOM 产生真实 DOM
-    // 插入到 el 中
+    var updateComponent = function updateComponent() {
+      // 调用render方法产生虚拟节点 虚拟 DOM
+      vm._update(vm._render()); // vm._render ===> vm.$options.render
 
+    };
+
+    new Watcher(vm, updateComponent, true); // 用 true 标识是一个渲染过程
   }
 
   function initMixin(Vue) {
