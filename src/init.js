@@ -1,6 +1,7 @@
 import { initState } from './state'
 import { compileToFucntion } from './compiler'
-import { mountComponent } from './lifecycle'
+import { mountComponent, callHook } from './lifecycle'
+import { mergeOptions } from './utils'
 
 function initMixin(Vue) {
   // 用于初始化操作
@@ -9,10 +10,13 @@ function initMixin(Vue) {
     // vue 实例的方法或属性前面有 $
     // 代表用户传过来的配置选项，把它放在全局上，
     // 这样其他实例方法都能访问
-    this.$options = options
+    // 定义到全局的指令等等，都可以在实例上访问到
+    this.$options = mergeOptions(this.constructor.options, options)
 
+    callHook(vm, 'beforeCreate')
     // 初始化状态
     initState(vm)
+    callHook(vm, 'created')
 
     // 模板解析
     if (options.el) {

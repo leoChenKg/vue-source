@@ -21,14 +21,29 @@
               b: 1
             }
           }
-        },
-        el: '#app'
+        }
+        // el: '#app'
       })
-      console.log(vm)
-      setTimeout(() => {
-        vm.name = 'cyx==cqy'
-        vm.age = 90
-      }, 1000)
+      vm.$mount('#app')
+      // setTimeout(() => {
+      //   vm.name = 'cyx==cqy6'
+      //   vm.name = 'cyx==cqy5'
+      //   vm.name = 'cyx==cqy4'
+      //   vm.name = 'cyx==cqy3'
+      //   vm.name = 'cyx==cqy2'
+      //   vm.name = 'cyx==cqy1'
+      //   vm.age = 90
+      // }, 1000)
+
+      vm.name = 'cqy' // 不会立即重新渲染
+      // console.log(document.querySelector("#app").innerHTML) // 同步获取 DOM 内容
+
+      // nextTick 不是创建了一个异步任务，而是将每次传入的回调维护到队列中，最后异步循环依次调用
+      vm.$nextTick(() => {
+        // 批处理 收集回调函数 最后异步 循环回调队列 依次执行
+        let app = document.querySelector('#app')
+        console.log(app.innerHTML)
+      })
     </script>
   </body>
 </html>

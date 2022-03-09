@@ -1,4 +1,4 @@
-import Watcher from './observe/watcher'
+import Watcher, { nextTick } from './observe/watcher'
 import { createTextVNode, createElementVnode } from './vdom'
 
 function createElm(vnode) {
@@ -89,6 +89,8 @@ export default function initLifecycle(Vue) {
     // 当执行的时候去 vue 的实例上取值，这样视图和属性就绑在一起了
     return this.$options.render.call(this)
   }
+
+  Vue.prototype.$nextTick = nextTick
 }
 
 export function mountComponent(vm, el) {
@@ -98,4 +100,13 @@ export function mountComponent(vm, el) {
     vm._update(vm._render()) // vm._render ===> vm.$options.render
   }
   new Watcher(vm, updateComponent, true) // 用 true 标识是一个渲染过程
+}
+
+
+// 调用钩子函数 生命周期函数
+export function callHook(vm, hook) {
+  let hooks = vm.$options[hook]
+  if (hooks) {
+    hooks.forEach(h => h.call(vm))
+  }
 }

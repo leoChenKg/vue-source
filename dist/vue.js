@@ -551,7 +551,6 @@
     }, {
       key: "get",
       value: function get() {
-        console.log('更新！！！！');
         Dep.target = this; // 当前的渲染 watcher 放到全局 Dep 上
 
         this.getter(); // 会执行 render 函数 去 vm 上取值。然后再更新界面
@@ -564,15 +563,30 @@
         // this.get()
         queueWather(this); // 把当前的 watcher 传入存起来，异步更新
       }
+    }, {
+      key: "run",
+      value: function run() {
+        console.log('更新！！！！');
+        this.get();
+      }
     }]);
 
     return Watcher;
-  }(); // 异步更新 方案一
-
+  }();
 
   var queue = [];
   var has = {};
   var padding = false;
+
+  function flushQueues() {
+    var flushQueue = queue.slice(0);
+    padding = false;
+    has = {};
+    queue = [];
+    flushQueue.forEach(function (watcher) {
+      return watcher.run();
+    });
+  }
 
   function queueWather(watcher) {
     var id = watcher.id;
@@ -583,14 +597,57 @@
 
       if (!padding) {
         padding = true;
-        Promise.resolve().then(function () {
-          return queue.forEach(function (watcher) {
-            return watcher.get();
-          });
-        });
+        nextTick(flushQueues);
       }
     }
-  } // 异步更新 方案二
+  }
+
+  var callbacks = [];
+  var waiting = false;
+
+  function flushCallbacks() {
+    var cbs = callbacks.slice(0);
+    callbacks = [];
+    waiting = false;
+    cbs.forEach(function (cb) {
+      return cb();
+    });
+  } // 源码中 nextTick 采用降级方案  Promise => MutationObserve setImmediate（ie） => setTimeout
+  // let timerFun
+  // if (Promise) {
+  //   timerFun = () => {
+  //     Promise.resolve().then(flushCallbacks)
+  //   }
+  // } else if (MutationObserver) {
+  //   let observer = new MutationObserver(flushCallbacks) // 异步回调
+  //   let textNode = document.createTextNode(1)
+  //   observer.observe(textNode, {
+  //     // 监控文本节点的值是否变化，变化就执行构造函数传入的回调
+  //     characterData: true
+  //   })
+  //   timerFun = () => {
+  //     textNode.textContent = 2
+  //   }
+  // } else if (setImmediate) {
+  //   timerFun = () => {
+  //     setImmediate(flushCallbacks)
+  //   }
+  // } else {
+  //   timerFun = () => {
+  //     setTimeout(flushCallbacks)
+  //   }
+  // }
+
+
+  function nextTick(cb) {
+    callbacks.push(cb);
+
+    if (!waiting) {
+      waiting = true; // timerFun()
+
+      Promise.resolve().then(flushCallbacks);
+    }
+  } // 需要给每个属性增加一个 dep，收集 watcher
 
   // _c()
   function createElementVnode(vm, tag, data) {
@@ -717,6 +774,8 @@
       // 当执行的时候去 vue 的实例上取值，这样视图和属性就绑在一起了
       return this.$options.render.call(this);
     };
+
+    Vue.prototype.$nextTick = nextTick;
   }
   function mountComponent(vm, el) {
     vm.$el = el;
@@ -728,6 +787,57 @@
     };
 
     new Watcher(vm, updateComponent, true); // 用 true 标识是一个渲染过程
+  } // 调用钩子函数 生命周期函数
+
+  function callHook(vm, hook) {
+    var hooks = vm.$options[hook];
+
+    if (hooks) {
+      hooks.forEach(function (h) {
+        return h.call(vm);
+      });
+    }
+  }
+
+  // 静态方法
+  var strats = {};
+  var LIFECYCLE = ['beforeCreate', 'created'];
+  LIFECYCLE.forEach(function (hook) {
+    strats[hook] = function (p, c) {
+      if (c) {
+        if (p) {
+          return p.concat(c);
+        } else {
+          return [c];
+        }
+      } else {
+        return p;
+      }
+    };
+  });
+  function mergeOptions(parent, child) {
+    var options = {};
+
+    for (var key in parent) {
+      mergeField(key);
+    }
+
+    for (var _key in child) {
+      if (!parent.hasOwnProperty(_key)) {
+        // parent 没有 key 属性 child 有
+        mergeField(_key);
+      }
+    }
+
+    function mergeField(key) {
+      if (strats[key]) {
+        options[key] = strats[key](parent[key], child[key]);
+      } else {
+        options[key] = child[key] || parent[key];
+      }
+    }
+
+    return options;
   }
 
   function initMixin(Vue) {
@@ -736,10 +846,13 @@
       var vm = this; // vue 实例的方法或属性前面有 $
       // 代表用户传过来的配置选项，把它放在全局上，
       // 这样其他实例方法都能访问
+      // 定义到全局的指令等等，都可以在实例上访问到
 
-      this.$options = options; // 初始化状态
+      this.$options = mergeOptions(this.constructor.options, options);
+      callHook(vm, 'beforeCreate'); // 初始化状态
 
-      initState(vm); // 模板解析
+      initState(vm);
+      callHook(vm, 'created'); // 模板解析
 
       if (options.el) {
         vm.$mount(options.el);
@@ -777,6 +890,16 @@
     };
   }
 
+  function initGlobalApi(Vue) {
+    Vue.options = {};
+
+    Vue.mixin = function (mixin) {
+      this.options = mergeOptions(this.options, mixin);
+      console.log(this.options);
+      return this;
+    };
+  }
+
   function Vue(options) {
     // debugger
     this._init(options);
@@ -785,6 +908,7 @@
   initMixin(Vue); // 扩展了 init 方法
 
   initLifecycle(Vue);
+  initGlobalApi(Vue);
 
   return Vue;
 

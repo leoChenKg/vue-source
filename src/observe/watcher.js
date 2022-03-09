@@ -26,7 +26,6 @@ class Watcher {
     }
   }
   get() {
-    console.log('更新！！！！')
     Dep.target = this // 当前的渲染 watcher 放到全局 Dep 上
     this.getter() // 会执行 render 函数 去 vm 上取值。然后再更新界面
     Dep.target = null // 渲染完毕后清空
@@ -36,35 +35,78 @@ class Watcher {
     // this.get()
     queueWather(this) // 把当前的 watcher 传入存起来，异步更新
   }
+
+  run() {
+    console.log('更新！！！！')
+    this.get()
+  }
 }
 
-// 异步更新 方案一
 let queue = []
 let has = {}
 let padding = false
+function flushQueues() {
+  let flushQueue = queue.slice(0)
+  padding = false
+  has = {}
+  queue = []
+  flushQueue.forEach(watcher => watcher.run())
+}
 function queueWather(watcher) {
   let id = watcher.id
   if (has[id] === undefined) {
     queue.push(watcher)
     has[id] = watcher.id
-
     if (!padding) {
       padding = true
-      Promise.resolve().then(() => queue.forEach(watcher => watcher.get()))
+      nextTick(flushQueues)
     }
   }
 }
 
-// 异步更新 方案二
-// function queueWather(watcher) {
-//   if (!watcher.isUpdate) {
-//     watcher.isUpdate = true
-//     Promise.resolve().then(() => {
-//       watcher.get()
-//       watcher.isUpdate = false
-//     })
+let callbacks = []
+let waiting = false
+function flushCallbacks() {
+  let cbs = callbacks.slice(0)
+  callbacks = []
+  waiting = false
+  cbs.forEach(cb => cb())
+}
+
+// 源码中 nextTick 采用降级方案  Promise => MutationObserve setImmediate（ie） => setTimeout
+// let timerFun
+// if (Promise) {
+//   timerFun = () => {
+//     Promise.resolve().then(flushCallbacks)
+//   }
+// } else if (MutationObserver) {
+//   let observer = new MutationObserver(flushCallbacks) // 异步回调
+//   let textNode = document.createTextNode(1)
+//   observer.observe(textNode, {
+//     // 监控文本节点的值是否变化，变化就执行构造函数传入的回调
+//     characterData: true
+//   })
+//   timerFun = () => {
+//     textNode.textContent = 2
+//   }
+// } else if (setImmediate) {
+//   timerFun = () => {
+//     setImmediate(flushCallbacks)
+//   }
+// } else {
+//   timerFun = () => {
+//     setTimeout(flushCallbacks)
 //   }
 // }
+
+export function nextTick(cb) {
+  callbacks.push(cb)
+  if (!waiting) {
+    waiting = true
+    // timerFun()
+    Promise.resolve().then(flushCallbacks)
+  }
+}
 
 // 需要给每个属性增加一个 dep，收集 watcher
 // 一个组件中有n个属性--》 n个dep对应一个 watcher 一个组件一个 watcher
