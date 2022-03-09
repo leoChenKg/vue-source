@@ -1,5 +1,6 @@
 import { initState } from './state'
 import { compileToFucntion } from './compiler'
+import { mountComponent } from './lifecycle'
 
 function initMixin(Vue) {
   // 用于初始化操作
@@ -31,6 +32,7 @@ function initMixin(Vue) {
         template = el.outerHTML
       } else {
         if (el) {
+          // 如果有 el 和 template ，那么tempalte 为模板 el 为挂载的容器元素
           template = opts.template
         }
       }
@@ -41,6 +43,9 @@ function initMixin(Vue) {
         opts.render = render
       }
     }
+
+    // 组建的挂载
+    mountComponent(vm, el)
   }
 }
 
